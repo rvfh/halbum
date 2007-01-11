@@ -27,7 +27,7 @@ header() {
     echo "<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET=utf-8\">"
     echo "<TITLE>$1</TITLE>"
     echo "</head>"
-    echo "<BODY bgcolor=\"#f0f0ff\" text=\"#000000\" link=\"#0000cc\" vlink=\"#551a8b\" alink=\"#ff0000\">"
+    echo "<BODY bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
 }
 
@@ -134,19 +134,23 @@ ls -1tr | while read dir; do
             if ! grep -e "^TITLE:" "titles.text" >> /dev/null; then
                 echo "TITLE: untitled" >> "titles.text"
             fi
-            TITLE=`grep -e "^TITLE:" "titles.text" | sed "s/^TITLE://"`
-            echo "<CENTER><H1>$TITLE</H1></CENTER>" >> $FILE
+            TITLE=`grep -e "^TITLE:" "titles.text" | sed "s/^TITLE: *//"`
+            echo "<table bgcolor=\"#444444\" width=100% border=1 cellspacing=0 cellpadding=3><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>" >> $FILE
 
             # Add new images to list
             if [ -z "$JOB_DONE" ]; then
                 for HIMAGE in `ls -tr ../HiQ/*.[jJ][pP][gG]`; do
+                    echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3>" >> $FILE
+                    echo "<tr><td align=\"center\" bgcolor=\"#444444\">" >> $FILE
                     IMAGE=`basename "$HIMAGE"`
                     LIMAGE=../$IMAGE
-                    echo "<CENTER><A HREF=\"$HIMAGE\"><IMG SRC=\"$LIMAGE\" ALT=\"$HIMAGE\"></A></CENTER>" >> $FILE
+                    echo "<a href=\"$HIMAGE\"><img src=\"$LIMAGE\" alt=\"$HIMAGE\"></a>" >> $FILE
                     if ! grep -e "^$IMAGE:" "titles.text" >> /dev/null; then
                         echo "$IMAGE: untitled" >> "titles.text"
                     fi
-                    echo "<CENTER><P><B>`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`</B> <I>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</I></CENTER>" >> $FILE
+                    echo "<p align=\"center\"><b>`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`</b> <i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
+                    echo "</tr></td>" >> $FILE
+                    echo "</table><p>&nbsp;</p>" >> $FILE
                 done
             fi
 
@@ -206,12 +210,12 @@ done
 
 # Now that the directory dates are set, fill in the main index file
 header "Choose your language" > $FILE
-echo "<CENTER><H1>Choose your language</H1></CENTER>" >> $FILE
-echo "<CENTER>" >> $FILE
+echo "<center><H1>Choose your language</H1></center>" >> $FILE
+echo "<center>" >> $FILE
 for LANGUAGE in `cat languages`; do
     echo "<A HREF=\"$LANGUAGE\"><IMG SRC=\"$LANGUAGE/flag.gif\" WIDTH=144 HEIGHT=76 ALT=\"`cat $LANGUAGE/name`\"></A>" >> $FILE
 done
-echo "</CENTER>" >> $FILE
+echo "</center>" >> $FILE
 echo "<p><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
 footer >> $FILE
 
