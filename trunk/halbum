@@ -96,11 +96,12 @@ ls -1tr | while read dir; do
             if [ ! -e "$LIMAGE" ]; then
                 echo " ---> creating thumbnail"
                 if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
-                    convert -resize $MAX_DIMENSION $HIMAGE $LIMAGE
+                    convert -resize $MAX_DIMENSION $HIMAGE .image
                 else
-                    convert -resize x$MAX_DIMENSION $HIMAGE $LIMAGE
+                    convert -resize x$MAX_DIMENSION $HIMAGE .image
                 fi
-                touch -r $HIMAGE $LIMAGE
+                touch -r $HIMAGE .image
+                mv .image $LIMAGE
                 echo " ---> thumbnail: "`jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2`
             fi
         done
