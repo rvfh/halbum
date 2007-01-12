@@ -8,7 +8,7 @@ PROGNAME=`basename $0`
 
 MAX_DIMENSION=320
 
-FILE=index.html.$$
+FILE=.index
 
 # If we receive a path as argument, work within it
 # Usually /srv/http/photos
@@ -23,11 +23,11 @@ header() {
     echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"
     echo "<html>"
     echo "<head>"
-    echo "<META NAME=\"Generator\" Content=\"My magic script\">"
-    echo "<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET=utf-8\">"
+    echo "<meta NAME=\"Generator\" Content=\"My magic script\">"
+    echo "<meta HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET=utf-8\">"
     echo "<TITLE>$1</TITLE>"
     echo "</head>"
-    echo "<BODY bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
+    echo "<body bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
     echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>"
 }
@@ -37,6 +37,12 @@ footer() {
     echo "</body>"
     echo "</html>"
 }
+
+# Check needed tools
+if ! which jhead > /dev/null 2>&1; then
+    echo " -> jhead mising, aborting"
+    exit 1
+fi
 
 # Main loop goes through all directories in view
 ls -1t | while read dir; do
@@ -51,19 +57,28 @@ ls -1t | while read dir; do
             continue
         fi
 
-        # Convert new images
-        for HIMAGE in `ls -tr HiQ/*.[jJ][pP][gG]`; do
-            LIMAGE=`basename "$HIMAGE"`
-            if [ ! -e "$LIMAGE" ]; then
-                # Make sure the permissions are correct
-                chmod 644 "$HIMAGE"
-
-                # Repair file time
-                if which jhead > /dev/null 2>&1; then
-                    jhead -ft "$HIMAGE" > /dev/null
+        # Make sure permissions and date are correct
+        cd HiQ
+        for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
+            STAMP=".$HIMAGE"
+            if [ ! -e "$STAMP" ]; then
+                # Make sure the permissions are correct and repair file time
+                if chmod 644 "$HIMAGE" && jhead -ft "$HIMAGE" > /dev/null; then
+                    touch "$STAMP"
                 fi
             fi
+        done
+        cd ..
 
+        # Make sure we have at least one language
+        if  [ ! -r languages ]; then
+            echo en > languages
+        fi
+        LANGUAGES=`cat languages`
+
+        # Convert images
+        for HIMAGE in `ls -tr HiQ/*.[jJ][pP][gG]`; do
+            LIMAGE=`basename "$HIMAGE"`
             # Check reduction dimensions
             HIMAGE_DIMENSIONS=`jhead -c "$HIMAGE" | cut -d '"' -f 3`
             HIMAGE_DIMENSIONS=${HIMAGE_DIMENSIONS:1}
@@ -105,16 +120,11 @@ ls -1t | while read dir; do
                 else
                     convert -resize x$MAX_DIMENSION "$HIMAGE" .image
                 fi
-                touch -r "$HIMAGE" .image
                 rm -f "$LIMAGE"
                 mv .image "$LIMAGE"
                 echo " ---> thumbnail: "`jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2`
             fi
         done
-
-        if  [ ! -r languages ]; then
-            echo en > languages
-        fi
 
         for LANGUAGE in `cat languages`; do
             echo -n " --> creating index for language $LANGUAGE"
@@ -134,10 +144,12 @@ ls -1t | while read dir; do
             fi
 
             # Add title
-            TITLE=`grep -e "^TITLE:" "titles.text" | sed "s/^TITLE: *//"`
+            TITLE=`grep -e "^TITLE:" "titles.text"`
             if [ -z "$TITLE" ]; then
                 echo "TITLE: untitled" >> "titles.text"
                 TITLE="untitled"
+            else
+                TITLE=`echo $TITLE | sed "s/^TITLE: *//"`
             fi
 
             # Create header (and file)
@@ -146,19 +158,19 @@ ls -1t | while read dir; do
             # Add new images to list
             if [ -z "$JOB_DONE" ]; then
                 for HIMAGE in `ls -1tr ../HiQ/*.[jJ][pP][gG]`; do
-                    echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3>" >> $FILE
-                    echo "<tr><td align=\"center\" bgcolor=\"#444444\">" >> $FILE
+                    echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $FILE
                     IMAGE=`basename "$HIMAGE"`
                     LIMAGE=../$IMAGE
                     echo "<a href=\"$HIMAGE\"><img src=\"$LIMAGE\" alt=\"$HIMAGE\" title=\"$IMAGE\"></a>" >> $FILE
-                    IMAGE_NAME=`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`
+                    IMAGE_NAME=`grep -e "^$IMAGE:" "titles.text"`
                     if [ -z "$IMAGE_NAME" ]; then
                         echo "$IMAGE: untitled" >> "titles.text"
                         IMAGE_NAME="untitled"
+                    else
+                        IMAGE_NAME=`echo $IMAGE_NAME | sed "s%^$IMAGE:%%"`
                     fi
                     echo "<p align=\"center\"><b>$IMAGE_NAME</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
-                    echo "</tr></td>" >> $FILE
-                    echo "</table><p>&nbsp;</p>" >> $FILE
+                    echo "</tr></td></table><p>&nbsp;</p>" >> $FILE
                 done
             fi
 
@@ -196,6 +208,7 @@ for LANGUAGE in `cat languages`; do
         image_dir="../$dir"
         lang_dir="../$dir/$LANGUAGE"
         if [ ! -d "$lang_dir" ]; then
+            # Default to English
             lang_dir="../$dir/en"
         fi
         if [ -d "$lang_dir" ] && [ -r "$lang_dir/titles.text" ] && [ -r "$lang_dir/index.html" ]; then
