@@ -99,7 +99,7 @@ ls -1t | while read dir; do
             fi
 
             # Add title
-            TITLE=`grep -e "^TITLE:" "$LANGUAGE/titles.text"`
+            TITLE=`grep -m1 -e "^TITLE:" "$LANGUAGE/titles.text"`
             if [ -z "$TITLE" ]; then
                 echo "TITLE: untitled" >> "$LANGUAGE/titles.text"
                 TITLE="untitled"
@@ -164,7 +164,7 @@ ls -1t | while read dir; do
                 # Add new images to list
                 echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
                 echo "<a href=\"$HIMAGE\"><img src=\"../$LIMAGE\" alt=\"$HIMAGE\" title=\"$LIMAGE\"></a>" >> $LANGUAGE/.index
-                IMAGE_NAME=`grep -e "^$LIMAGE:" "$LANGUAGE/titles.text"`
+                IMAGE_NAME=`grep -m1 -e "^$LIMAGE:" "$LANGUAGE/titles.text"`
                 if [ -z "$IMAGE_NAME" ]; then
                     echo "$LIMAGE: untitled" >> "$LANGUAGE/titles.text"
                     IMAGE_NAME="untitled"
