@@ -29,7 +29,18 @@ header() {
     echo "</head>"
     echo "<body bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
-    echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>"
+    echo "<a name=\"top\"></a>"
+    echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5>"
+    echo "<tr><td><h1 align=\"center\">"
+    if [ -n "$2" ]; then
+        echo "<a href=\"$2\">"
+    fi
+    echo "$1"
+    if [ -n "$2" ]; then
+        echo "</a>"
+    fi
+    echo "</h1></td></tr>"
+    echo "</table><p>&nbsp;</p>"
 }
 
 footer() {
@@ -156,7 +167,16 @@ ls -1t | while read dir; do
             fi
 
             # Create header (and file)
-            header "$TITLE" > $LANGUAGE/.index
+            header "$TITLE" "../../$LANGUAGE" > $LANGUAGE/.index
+
+            # Links to other languages
+            echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
+            for OTHER_LANGUAGE in $LANGUAGES; do
+                if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
+                    echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+                fi
+            done
+            echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
             # Convert images
             for ORIGINAL in `ls -tr originals/*.[jJ][pP][gG]`; do
@@ -171,7 +191,7 @@ ls -1t | while read dir; do
                 else
                     IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $ORIGINAL`, Size: `du --si $ORIGINAL | cut -f 1`)</i></p>" >> $LANGUAGE/.index
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $ORIGINAL`, Size: `du --si $ORIGINAL | cut -f 1`)</i><br><a href=\"#top\">back to top</a></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
 
@@ -193,12 +213,21 @@ rm -f $ALL_LANGUAGES
 
 # Now that the directory dates are set, fill in the main index file
 echo "Create album indexes"
-for LANGUAGE in `cat languages`; do
+LANGUAGES=`cat languages`
+for LANGUAGE in $LANGUAGES; do
     mkdir -p $LANGUAGE
     echo " -> language $LANGUAGE"
     TITLE="Photos"
 
-    header "$TITLE" > $LANGUAGE/.index
+    header "$TITLE" "../.." > $LANGUAGE/.index
+
+    echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
+    for OTHER_LANGUAGE in $LANGUAGES; do
+        if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
+            echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+        fi
+    done
+    echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
     echo "<table align=\"center\"><tr><td>" >> $LANGUAGE/.index
     ls -1tr | while read dir; do
