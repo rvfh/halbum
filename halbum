@@ -29,7 +29,7 @@ header() {
     echo "</head>"
     echo "<BODY bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
-    echo "<table bgcolor=\"#444444\" width=100% border=1 cellspacing=0 cellpadding=3><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>"
+    echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>"
 }
 
 footer() {
@@ -117,15 +117,16 @@ ls -1t | while read dir; do
         fi
 
         for LANGUAGE in `cat languages`; do
-            mkdir -p $LANGUAGE
-            cd $LANGUAGE
             echo -n " --> creating index for language $LANGUAGE"
-            if [ -r $ROOT/$LANGUAGE/name ]; then
-                echo " (`cat $ROOT/$LANGUAGE/name`)"
+            if [ -r $ROOT/names/$LANGUAGE.text ]; then
+                echo " (`cat $ROOT/names/$LANGUAGE.text`)"
             else
                 echo
             fi
             echo $LANGUAGE >> $ALL_LANGUAGES
+
+            mkdir -p $LANGUAGE
+            cd $LANGUAGE
 
             # Create photos titles file
             if [ ! -r "titles.text" ]; then
@@ -133,26 +134,29 @@ ls -1t | while read dir; do
             fi
 
             # Add title
-            if ! grep -e "^TITLE:" "titles.text" >> /dev/null; then
-                echo "TITLE: untitled" >> "titles.text"
-            fi
             TITLE=`grep -e "^TITLE:" "titles.text" | sed "s/^TITLE: *//"`
+            if [ -z "$TITLE" ]; then
+                echo "TITLE: untitled" >> "titles.text"
+                TITLE="untitled"
+            fi
 
             # Create header (and file)
             header "$TITLE" > $FILE
 
             # Add new images to list
             if [ -z "$JOB_DONE" ]; then
-                for HIMAGE in `ls -tr ../HiQ/*.[jJ][pP][gG]`; do
+                for HIMAGE in `ls -1tr ../HiQ/*.[jJ][pP][gG]`; do
                     echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3>" >> $FILE
                     echo "<tr><td align=\"center\" bgcolor=\"#444444\">" >> $FILE
                     IMAGE=`basename "$HIMAGE"`
                     LIMAGE=../$IMAGE
-                    echo "<a href=\"$HIMAGE\"><img src=\"$LIMAGE\" alt=\"$HIMAGE\"></a>" >> $FILE
-                    if ! grep -e "^$IMAGE:" "titles.text" >> /dev/null; then
+                    echo "<a href=\"$HIMAGE\"><img src=\"$LIMAGE\" alt=\"$HIMAGE\" title=\"$IMAGE\"></a>" >> $FILE
+                    IMAGE_NAME=`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`
+                    if [ -z "$IMAGE_NAME" ]; then
                         echo "$IMAGE: untitled" >> "titles.text"
+                        IMAGE_NAME="untitled"
                     fi
-                    echo "<p align=\"center\"><b>`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
+                    echo "<p align=\"center\"><b>$IMAGE_NAME</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
                     echo "</tr></td>" >> $FILE
                     echo "</table><p>&nbsp;</p>" >> $FILE
                 done
@@ -161,16 +165,14 @@ ls -1t | while read dir; do
             # Add footer
             footer >> $FILE
 
-            # Give me the flag
-            rm -f flag.gif
-            ln -s $ROOT/$LANGUAGE/flag.gif
-
             # Put new file online
             mv $FILE index.html
             cd ..
         done
+
+        # Language support
+        ln -sf $ROOT/flags
         ln -sf $ROOT/index.html index.html
-        touch -r "`ls -1tr HiQ/*.[jJ][pP][gG] | tail -1`" .
 
         cd ..
     fi
@@ -217,7 +219,7 @@ TITLE="Choose your language"
 header "$TITLE" > $FILE
 echo "<table align=\"center\"><tr><td>" >> $FILE
 for LANGUAGE in `cat languages`; do
-    echo "<a href=\"$LANGUAGE\"><img src=\"$LANGUAGE/flag.gif\" width=144 height=76 alt=\"`cat $LANGUAGE/name`\" title=\"`cat $LANGUAGE/name`\"></a>" >> $FILE
+    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"`cat $ROOT/names/$LANGUAGE.text`\" title=\"`cat $ROOT/names/$LANGUAGE.text`\"></a>" >> $FILE
 done
 echo "</td></tr></table>" >> $FILE
 echo "<p align=\"center\"><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
