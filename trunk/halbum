@@ -87,8 +87,7 @@ ls -1tr | while read dir; do
                     LIMAGE_DIMENSION=${LIMAGE_DIMENSIONS/*x/}
                 fi
                 if [ "$LIMAGE_DIMENSION" != "$MAX_DIMENSION" ]; then
-                    echo " ---> erasing"
-                    rm -f "$LIMAGE"
+                    echo " ---> scheduling for re-creation"
                     unset LIMAGE_ISVALID
                 else
                     LIMAGE_ISVALID="yes"
