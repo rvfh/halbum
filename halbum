@@ -45,6 +45,7 @@ if ! which jhead > /dev/null 2>&1; then
 fi
 
 # Main loop goes through all directories in view
+echo "Create albums"
 ls -1t | while read dir; do
     # If it contains a HiQ directory, it may be of interest
     if [ -d "$dir" ] && [ -d "$dir/HiQ" ]; then
@@ -75,6 +76,39 @@ ls -1t | while read dir; do
             echo en > languages
         fi
         LANGUAGES=`cat languages`
+
+        # Language support
+        ln -sf $ROOT/flags
+        ln -sf $ROOT/index.html index.html
+
+        # Create index
+        for LANGUAGE in $LANGUAGES; do
+            echo -n " --> creating index for language $LANGUAGE"
+            if [ -r $ROOT/names/$LANGUAGE.text ]; then
+                echo " (`cat $ROOT/names/$LANGUAGE.text`)"
+            else
+                echo
+            fi
+            echo $LANGUAGE >> $ALL_LANGUAGES
+
+            # Create photos titles file
+            mkdir -p $LANGUAGE
+            if [ ! -r "$LANGUAGE/titles.text" ]; then
+                touch "$LANGUAGE/titles.text"
+            fi
+
+            # Add title
+            TITLE=`grep -e "^TITLE:" "$LANGUAGE/titles.text"`
+            if [ -z "$TITLE" ]; then
+                echo "TITLE: untitled" >> "$LANGUAGE/titles.text"
+                TITLE="untitled"
+            else
+                TITLE=`echo $TITLE | sed "s/^TITLE: *//"`
+            fi
+
+            # Create header (and file)
+            header "$TITLE" > $LANGUAGE/.index
+        done
 
         # Convert images
         for HIMAGE in `ls -tr HiQ/*.[jJ][pP][gG]`; do
@@ -124,68 +158,31 @@ ls -1t | while read dir; do
                 mv .image "$LIMAGE"
                 echo " ---> thumbnail: "`jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2`
             fi
+
+            for LANGUAGE in $LANGUAGES; do
+                # Add new images to list
+                echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
+                echo "<a href=\"$HIMAGE\"><img src=\"../$LIMAGE\" alt=\"$HIMAGE\" title=\"$LIMAGE\"></a>" >> $LANGUAGE/.index
+                IMAGE_NAME=`grep -e "^$LIMAGE:" "$LANGUAGE/titles.text"`
+                if [ -z "$IMAGE_NAME" ]; then
+                    echo "$LIMAGE: untitled" >> "$LANGUAGE/titles.text"
+                    IMAGE_NAME="untitled"
+                else
+                    IMAGE_NAME=`echo $IMAGE_NAME | sed "s%^$LIMAGE:%%"`
+                fi
+                echo "<p align=\"center\"><b>$IMAGE_NAME</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $LANGUAGE/.index
+                echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
+            done
         done
 
-        for LANGUAGE in `cat languages`; do
-            echo -n " --> creating index for language $LANGUAGE"
-            if [ -r $ROOT/names/$LANGUAGE.text ]; then
-                echo " (`cat $ROOT/names/$LANGUAGE.text`)"
-            else
-                echo
-            fi
-            echo $LANGUAGE >> $ALL_LANGUAGES
-
-            mkdir -p $LANGUAGE
-            cd $LANGUAGE
-
-            # Create photos titles file
-            if [ ! -r "titles.text" ]; then
-                touch "titles.text"
-            fi
-
-            # Add title
-            TITLE=`grep -e "^TITLE:" "titles.text"`
-            if [ -z "$TITLE" ]; then
-                echo "TITLE: untitled" >> "titles.text"
-                TITLE="untitled"
-            else
-                TITLE=`echo $TITLE | sed "s/^TITLE: *//"`
-            fi
-
-            # Create header (and file)
-            header "$TITLE" > $FILE
-
-            # Add new images to list
-            if [ -z "$JOB_DONE" ]; then
-                for HIMAGE in `ls -1tr ../HiQ/*.[jJ][pP][gG]`; do
-                    echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $FILE
-                    IMAGE=`basename "$HIMAGE"`
-                    LIMAGE=../$IMAGE
-                    echo "<a href=\"$HIMAGE\"><img src=\"$LIMAGE\" alt=\"$HIMAGE\" title=\"$IMAGE\"></a>" >> $FILE
-                    IMAGE_NAME=`grep -e "^$IMAGE:" "titles.text"`
-                    if [ -z "$IMAGE_NAME" ]; then
-                        echo "$IMAGE: untitled" >> "titles.text"
-                        IMAGE_NAME="untitled"
-                    else
-                        IMAGE_NAME=`echo $IMAGE_NAME | sed "s%^$IMAGE:%%"`
-                    fi
-                    echo "<p align=\"center\"><b>$IMAGE_NAME</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
-                    echo "</tr></td></table><p>&nbsp;</p>" >> $FILE
-                done
-            fi
-
+        for LANGUAGE in $LANGUAGES; do
             # Add footer
-            footer >> $FILE
-
+            footer >> $LANGUAGE/.index
             # Put new file online
-            mv $FILE index.html
-            cd ..
+            mv $LANGUAGE/.index $LANGUAGE/index.html
         done
 
-        # Language support
-        ln -sf $ROOT/flags
-        ln -sf $ROOT/index.html index.html
-
+        touch -r "$HIMAGE" .
         cd ..
     fi
 done
@@ -195,10 +192,11 @@ sort $ALL_LANGUAGES | uniq > languages
 rm -f $ALL_LANGUAGES
 
 # Now that the directory dates are set, fill in the main index file
+echo "Create album indexes"
 for LANGUAGE in `cat languages`; do
     mkdir -p $LANGUAGE
     cd $LANGUAGE
-    echo "Language $LANGUAGE"
+    echo " -> language $LANGUAGE"
     TITLE="Photos"
 
     header "$TITLE" > $FILE
@@ -215,7 +213,7 @@ for LANGUAGE in `cat languages`; do
             TITLE=`grep -e "^TITLE:" "$lang_dir/titles.text" | sed "s/^TITLE://"`
 #            echo "<H3><a href=\"$lang_dir\">$TITLE</A> (`ls -l "$image_dir"/*.[jJ][pP][gG] | grep -c "/"` photos, `du -h --max-depth=0 -S "$lang_dir" | cut -f 1`)</H3>" >> $FILE
             echo "<h3><a href=\"$lang_dir\">$TITLE</a></h3>" >> $FILE
-            echo "Linked $lang_dir"
+            echo " --> linked $lang_dir"
         fi
     done
     echo "</td></tr></table>" >> $FILE
@@ -240,6 +238,3 @@ footer >> $FILE
 
 # Put new file online
 mv $FILE index.html
-
-echo "Update done"
-
