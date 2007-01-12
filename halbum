@@ -6,7 +6,7 @@
 
 PROGNAME=`basename $0`
 
-MAX_DIMENSION=320
+REDUCTIONS_SIZE=320
 
 FILE=.index
 
@@ -48,9 +48,6 @@ fi
 echo "Create albums"
 ls -1t | while read dir; do
     # If it contains an originals directory, it may be of interest
-    if [ -d "$dir/HiQ" ]; then
-        mv "$dir/HiQ" "$dir/originals"
-    fi
     if [ -d "$dir/originals" ]; then
         cd "$dir"
         echo " -> entering $dir"
@@ -63,18 +60,57 @@ ls -1t | while read dir; do
         mkdir -p reductions
 
         # Make sure permissions and date are correct
-        echo " --> checking original files"
-        cd originals
-        for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
-            HIMAGE_STAMP=".$HIMAGE"
-            if [ ! -e "$HIMAGE_STAMP" ]; then
+        echo " --> checking originals"
+        for ORIGINAL in `ls -tr originals/*.[jJ][pP][gG]`; do
+            IMAGE=`basename "$ORIGINAL"`
+            echo " ---> checking $IMAGE"
+            ORIGINAL_STAMP="originals/.$IMAGE"
+            if [ ! -e "$ORIGINAL_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
-                if chmod 644 "$HIMAGE" && jhead -ft "$HIMAGE" > /dev/null; then
-                    jhead -c "$HIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$HIMAGE_STAMP"
+                if chmod 644 "$ORIGINAL" && jhead -ft "$ORIGINAL" > /dev/null; then
+                    jhead -c "$ORIGINAL" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$ORIGINAL_STAMP"
+                fi
+            fi
+
+            # Check reduction dimensions
+            REDUCTION="reductions/$IMAGE"
+            REDUCTION_STAMP="reductions/.$IMAGE"
+            ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
+            ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
+            ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
+            if [ -e "$REDUCTION" ]; then
+                REDUCTION_DIMENSIONS=`cat "$REDUCTION_STAMP"`
+                if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
+                    # Landscape
+                    REDUCTION_DIMENSION=${REDUCTION_DIMENSIONS/x*/}
+                else
+                    # Portrait
+                    REDUCTION_DIMENSION=${REDUCTION_DIMENSIONS/*x/}
+                fi
+                if [ "$REDUCTION_DIMENSION" != "$REDUCTIONS_SIZE" ]; then
+                    echo " ---> scheduling for re-creation"
+                    unset REDUCTION_ISVALID
+                else
+                    REDUCTION_ISVALID="yes"
+                fi
+            else
+                unset REDUCTION_ISVALID
+            fi
+
+            # Create reduction
+            if [ -z "$REDUCTION_ISVALID" ]; then
+                echo " ---> creating reduction"
+                if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
+                    convert -resize $REDUCTIONS_SIZE "$ORIGINAL" .image
+                else
+                    convert -resize x$REDUCTIONS_SIZE "$ORIGINAL" .image
+                fi
+                rm -f "$REDUCTION" "$REDUCTION_STAMP"
+                if jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"; then
+                    mv .image "$REDUCTION"
                 fi
             fi
         done
-        cd ..
 
         # Make sure we have at least one language
         if  [ ! -r languages ]; then
@@ -87,14 +123,20 @@ ls -1t | while read dir; do
         ln -sf $ROOT/index.html index.html
 
         # Create index
+        echo " --> checking indexes"
         for LANGUAGE in $LANGUAGES; do
-            echo -n " --> creating index for language $LANGUAGE"
+            echo $LANGUAGE >> $ALL_LANGUAGES
+            TITLES="titles-$LANGUAGE.text"
+            if [ -r $LANGUAGE/index.html -a $TITLES -ot $LANGUAGE/index.html ]; then
+                continue
+            fi
+
+            echo -n " ---> creating index for language $LANGUAGE"
             if [ -r $ROOT/names/$LANGUAGE.text ]; then
                 echo " (`cat $ROOT/names/$LANGUAGE.text`)"
             else
                 echo
             fi
-            echo $LANGUAGE >> $ALL_LANGUAGES
 
             # Create photos titles file
             mkdir -p $LANGUAGE
@@ -115,64 +157,13 @@ ls -1t | while read dir; do
 
             # Create header (and file)
             header "$TITLE" > $LANGUAGE/.index
-        done
 
-        # Convert images
-        for HIMAGE in `ls -tr originals/*.[jJ][pP][gG]`; do
-            IMAGE=`basename "$HIMAGE"`
-            HIMAGE_STAMP="originals/.$IMAGE"
-            LIMAGE="reductions/$IMAGE"
-            LIMAGE_STAMP="reductions/.$IMAGE"
-            # Check reduction dimensions
-            HIMAGE_DIMENSIONS=`cat "$HIMAGE_STAMP"`
-            HIMAGE_WIDTH=${HIMAGE_DIMENSIONS/x*/}
-            HIMAGE_HEIGHT=${HIMAGE_DIMENSIONS/*x/}
-            echo -n " --> checking $IMAGE: "$HIMAGE_WIDTH"x"$HIMAGE_HEIGHT
-            if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
-                echo " landscape"
-            else
-                echo " portrait"
-            fi
-            if [ ! -e "$LIMAGE_STAMP" ]; then
-                jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$LIMAGE_STAMP"
-            fi
-            if [ -e "$LIMAGE" ]; then
-                LIMAGE_DIMENSIONS=`cat "$LIMAGE_STAMP"`
-                if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
-                    # Landscape
-                    LIMAGE_DIMENSION=${LIMAGE_DIMENSIONS/x*/}
-                else
-                    # Portrait
-                    LIMAGE_DIMENSION=${LIMAGE_DIMENSIONS/*x/}
-                fi
-                if [ "$LIMAGE_DIMENSION" != "$MAX_DIMENSION" ]; then
-                    echo " ---> scheduling for re-creation"
-                    unset LIMAGE_ISVALID
-                else
-                    LIMAGE_ISVALID="yes"
-                fi
-            else
-                unset LIMAGE_ISVALID
-            fi
-
-            # Create reduction
-            if [ -z "$LIMAGE_ISVALID" ]; then
-                echo " ---> creating thumbnail"
-                if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
-                    convert -resize $MAX_DIMENSION "$HIMAGE" .image
-                else
-                    convert -resize x$MAX_DIMENSION "$HIMAGE" .image
-                fi
-                rm -f "$LIMAGE"
-                mv .image "$LIMAGE"
-                echo " ---> thumbnail: "`jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2`
-            fi
-
-            for LANGUAGE in $LANGUAGES; do
-                # Add new images to list
-                TITLES="titles-$LANGUAGE.text"
+            # Convert images
+            for ORIGINAL in `ls -tr originals/*.[jJ][pP][gG]`; do
+                IMAGE=`basename "$ORIGINAL"`
+                REDUCTION="reductions/$IMAGE"
                 echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
-                echo "<a href=\"../$HIMAGE\"><img src=\"../$LIMAGE\" alt=\"$IMAGE\" title=\"$IMAGE\"></a>" >> $LANGUAGE/.index
+                echo "<a href=\"../$ORIGINAL\"><img src=\"../$REDUCTION\" alt=\"$IMAGE\" title=\"$IMAGE\"></a>" >> $LANGUAGE/.index
                 IMAGE_COMMENT=`grep -m1 -e "^$IMAGE:" "$TITLES"`
                 if [ -z "$IMAGE_COMMENT" ]; then
                     echo "$IMAGE: untitled" >> "$TITLES"
@@ -180,19 +171,18 @@ ls -1t | while read dir; do
                 else
                     IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $LANGUAGE/.index
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $ORIGINAL`, Size: `du --si $ORIGINAL | cut -f 1`)</i></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
-        done
 
-        for LANGUAGE in $LANGUAGES; do
             # Add footer
             footer >> $LANGUAGE/.index
+
             # Put new file online
             mv $LANGUAGE/.index $LANGUAGE/index.html
         done
 
-        touch -r "$HIMAGE" .
+        touch -r "$ORIGINAL" .
         cd ..
     fi
 done
