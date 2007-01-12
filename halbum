@@ -24,8 +24,8 @@ header() {
     echo "<html>"
     echo "<head>"
     echo "<meta NAME=\"Generator\" Content=\"My magic script\">"
-    echo "<meta HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET=utf-8\">"
-    echo "<TITLE>$1</TITLE>"
+    echo "<meta HTTP-EQUIV=\"Content-Type\" content=\"text/html; charset=utf-8\">"
+    echo "<title>$1</title>"
     echo "</head>"
     echo "<body bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
@@ -57,16 +57,18 @@ ls -1t | while read dir; do
             echo " --> no photograph files found, skipping"
             continue
         fi
+        mkdir -p reductions
 
         # Make sure permissions and date are correct
         echo " --> checking original files"
         cd HiQ
         for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
-            STAMP=".$HIMAGE"
-            if [ ! -e "$STAMP" ]; then
+            HIMAGE_STAMP=".$HIMAGE"
+            # TODO Remove size check
+            if [ ! -e "$HIMAGE_STAMP" -a -s "$HIMAGE_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
                 if chmod 644 "$HIMAGE" && jhead -ft "$HIMAGE" > /dev/null; then
-                    touch "$STAMP"
+                    jhead -c "$HIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$HIMAGE_STAMP"
                 fi
             fi
         done
@@ -94,14 +96,19 @@ ls -1t | while read dir; do
 
             # Create photos titles file
             mkdir -p $LANGUAGE
-            if [ ! -r "$LANGUAGE/titles.text" ]; then
-                touch "$LANGUAGE/titles.text"
+
+            TITLES="titles-$LANGUAGE.text"
+            if [ -r "$LANGUAGE/titles.text" ]; then
+                mv "$LANGUAGE/titles.text" "$TITLES"
+            fi
+            if [ ! -r "$TITLES" ]; then
+                touch "$TITLES"
             fi
 
             # Add title
-            TITLE=`grep -m1 -e "^TITLE:" "$LANGUAGE/titles.text"`
+            TITLE=`grep -m1 -e "^TITLE:" "$TITLES"`
             if [ -z "$TITLE" ]; then
-                echo "TITLE: untitled" >> "$LANGUAGE/titles.text"
+                echo "TITLE: untitled" >> "$TITLES"
                 TITLE="untitled"
             else
                 TITLE=`echo $TITLE | sed "s/^TITLE: *//"`
@@ -113,23 +120,29 @@ ls -1t | while read dir; do
 
         # Convert images
         for HIMAGE in `ls -tr HiQ/*.[jJ][pP][gG]`; do
-            LIMAGE=`basename "$HIMAGE"`
+            IMAGE=`basename "$HIMAGE"`
+            HIMAGE_STAMP="HiQ/.$IMAGE"
+            LIMAGE="reductions/$IMAGE"
+            LIMAGE_STAMP="reductions/.$IMAGE"
             # Check reduction dimensions
-            HIMAGE_DIMENSIONS=`jhead -c "$HIMAGE" | cut -d '"' -f 3`
-            HIMAGE_DIMENSIONS=${HIMAGE_DIMENSIONS:1}
-            HIMAGE_DIMENSIONS=${HIMAGE_DIMENSIONS/ */}
+            HIMAGE_DIMENSIONS=`cat "$HIMAGE_STAMP"`
             HIMAGE_WIDTH=${HIMAGE_DIMENSIONS/x*/}
             HIMAGE_HEIGHT=${HIMAGE_DIMENSIONS/*x/}
-            echo -n " --> checking $LIMAGE: "$HIMAGE_WIDTH"x"$HIMAGE_HEIGHT
+            echo -n " --> checking $IMAGE: "$HIMAGE_WIDTH"x"$HIMAGE_HEIGHT
             if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
                 echo " landscape"
             else
                 echo " portrait"
             fi
+            # TODO Remove that
+            if [ -e "$IMAGE" ]; then
+                mv "$IMAGE" "$LIMAGE"
+            fi
+            if [ ! -e "$LIMAGE_STAMP" ]; then
+                jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$LIMAGE_STAMP"
+            fi
             if [ -e "$LIMAGE" ]; then
-                LIMAGE_DIMENSIONS=`jhead -c "$LIMAGE" | cut -d '"' -f 3`
-                LIMAGE_DIMENSIONS=${LIMAGE_DIMENSIONS:1}
-                LIMAGE_DIMENSIONS=${LIMAGE_DIMENSIONS/ */}
+                LIMAGE_DIMENSIONS=`cat "$LIMAGE_STAMP"`
                 if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
                     # Landscape
                     LIMAGE_DIMENSION=${LIMAGE_DIMENSIONS/x*/}
@@ -162,16 +175,17 @@ ls -1t | while read dir; do
 
             for LANGUAGE in $LANGUAGES; do
                 # Add new images to list
+                TITLES="titles-$LANGUAGE.text"
                 echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
-                echo "<a href=\"$HIMAGE\"><img src=\"../$LIMAGE\" alt=\"$HIMAGE\" title=\"$LIMAGE\"></a>" >> $LANGUAGE/.index
-                IMAGE_NAME=`grep -m1 -e "^$LIMAGE:" "$LANGUAGE/titles.text"`
-                if [ -z "$IMAGE_NAME" ]; then
-                    echo "$LIMAGE: untitled" >> "$LANGUAGE/titles.text"
-                    IMAGE_NAME="untitled"
+                echo "<a href=\"../$HIMAGE\"><img src=\"../$LIMAGE\" alt=\"$IMAGE\" title=\"$IMAGE\"></a>" >> $LANGUAGE/.index
+                IMAGE_COMMENT=`grep -m1 -e "^$IMAGE:" "$TITLES"`
+                if [ -z "$IMAGE_COMMENT" ]; then
+                    echo "$IMAGE: untitled" >> "$TITLES"
+                    IMAGE_COMMENT="untitled"
                 else
-                    IMAGE_NAME=`echo $IMAGE_NAME | sed "s%^$LIMAGE:%%"`
+                    IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                echo "<p align=\"center\"><b>$IMAGE_NAME</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $LANGUAGE/.index
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
         done
@@ -196,34 +210,32 @@ rm -f $ALL_LANGUAGES
 echo "Create album indexes"
 for LANGUAGE in `cat languages`; do
     mkdir -p $LANGUAGE
-    cd $LANGUAGE
     echo " -> language $LANGUAGE"
     TITLE="Photos"
 
-    header "$TITLE" > $FILE
+    header "$TITLE" > $LANGUAGE/.index
 
-    echo "<table align=\"center\"><tr><td>" >> $FILE
-    ls -tr .. | while read dir; do
-        image_dir="../$dir"
-        lang_dir="../$dir/$LANGUAGE"
-        if [ ! -d "$lang_dir" ]; then
+    echo "<table align=\"center\"><tr><td>" >> $LANGUAGE/.index
+    ls -1tr | while read dir; do
+        TITLES="$dir/titles-$LANGUAGE.text"
+        if [ ! -r "$TITLES" ]; then
             # Default to English
-            lang_dir="../$dir/en"
+            LANGUAGE_USED="en"
+            TITLES="$dir/titles-$LANGUAGE_USED.text"
+        else
+            LANGUAGE_USED="$LANGUAGE"
         fi
-        if [ -d "$lang_dir" ] && [ -r "$lang_dir/titles.text" ] && [ -r "$lang_dir/index.html" ]; then
-            TITLE=`grep -e "^TITLE:" "$lang_dir/titles.text" | sed "s/^TITLE://"`
-#            echo "<H3><a href=\"$lang_dir\">$TITLE</A> (`ls -l "$image_dir"/*.[jJ][pP][gG] | grep -c "/"` photos, `du -h --max-depth=0 -S "$lang_dir" | cut -f 1`)</H3>" >> $FILE
-            echo "<h3><a href=\"$lang_dir\">$TITLE</a></h3>" >> $FILE
-            echo " --> linked $lang_dir"
+        if [ -d "$dir/$LANGUAGE_USED" ] && [ -r "$TITLES" ] && [ -r "$dir/$LANGUAGE_USED/index.html" ]; then
+            TITLE=`grep -e "^TITLE:" "$TITLES" | sed "s/^TITLE://"`
+            echo "<h3><a href=\"$dir/$LANGUAGE_USED\">$TITLE</a></h3>" >> $LANGUAGE/.index
+            echo " --> linked $dir/$LANGUAGE_USED"
         fi
     done
-    echo "</td></tr></table>" >> $FILE
-    footer >> $FILE
+    echo "</td></tr></table>" >> $LANGUAGE/.index
+    footer >> $LANGUAGE/.index
 
     # Put new file online
-    mv $FILE index.html
-
-    cd ..
+    mv $LANGUAGE/.index $LANGUAGE/index.html
 done
 
 # Now that the directory dates are set, fill in the main index file
