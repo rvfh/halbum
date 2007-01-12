@@ -59,6 +59,7 @@ ls -1t | while read dir; do
         fi
 
         # Make sure permissions and date are correct
+        echo " --> checking original files"
         cd HiQ
         for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
             STAMP=".$HIMAGE"
