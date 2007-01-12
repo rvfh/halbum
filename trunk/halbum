@@ -47,13 +47,16 @@ fi
 # Main loop goes through all directories in view
 echo "Create albums"
 ls -1t | while read dir; do
-    # If it contains a HiQ directory, it may be of interest
-    if [ -d "$dir" ] && [ -d "$dir/HiQ" ]; then
+    # If it contains an originals directory, it may be of interest
+    if [ -d "$dir/HiQ" ]; then
+        mv "$dir/HiQ" "$dir/originals"
+    fi
+    if [ -d "$dir/originals" ]; then
         cd "$dir"
         echo " -> entering $dir"
 
         # Check that the directory contains photographs
-        if ! ls HiQ/*.[jJ][pP][gG] > /dev/null 2>&1; then
+        if ! ls originals/*.[jJ][pP][gG] > /dev/null 2>&1; then
             echo " --> no photograph files found, skipping"
             continue
         fi
@@ -61,11 +64,10 @@ ls -1t | while read dir; do
 
         # Make sure permissions and date are correct
         echo " --> checking original files"
-        cd HiQ
+        cd originals
         for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
             HIMAGE_STAMP=".$HIMAGE"
-            # TODO Remove size check
-            if [ ! -e "$HIMAGE_STAMP" -o ! -s "$HIMAGE_STAMP" ]; then
+            if [ ! -e "$HIMAGE_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
                 if chmod 644 "$HIMAGE" && jhead -ft "$HIMAGE" > /dev/null; then
                     jhead -c "$HIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$HIMAGE_STAMP"
@@ -98,9 +100,6 @@ ls -1t | while read dir; do
             mkdir -p $LANGUAGE
 
             TITLES="titles-$LANGUAGE.text"
-            if [ -r "$LANGUAGE/titles.text" ]; then
-                mv "$LANGUAGE/titles.text" "$TITLES"
-            fi
             if [ ! -r "$TITLES" ]; then
                 touch "$TITLES"
             fi
@@ -119,9 +118,9 @@ ls -1t | while read dir; do
         done
 
         # Convert images
-        for HIMAGE in `ls -tr HiQ/*.[jJ][pP][gG]`; do
+        for HIMAGE in `ls -tr originals/*.[jJ][pP][gG]`; do
             IMAGE=`basename "$HIMAGE"`
-            HIMAGE_STAMP="HiQ/.$IMAGE"
+            HIMAGE_STAMP="originals/.$IMAGE"
             LIMAGE="reductions/$IMAGE"
             LIMAGE_STAMP="reductions/.$IMAGE"
             # Check reduction dimensions
@@ -133,10 +132,6 @@ ls -1t | while read dir; do
                 echo " landscape"
             else
                 echo " portrait"
-            fi
-            # TODO Remove that
-            if [ -e "$IMAGE" ]; then
-                mv "$IMAGE" "$LIMAGE"
             fi
             if [ ! -e "$LIMAGE_STAMP" ]; then
                 jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$LIMAGE_STAMP"
