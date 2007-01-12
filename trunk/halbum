@@ -89,19 +89,25 @@ ls -1tr | while read dir; do
                 if [ "$LIMAGE_DIMENSION" != "$MAX_DIMENSION" ]; then
                     echo " ---> erasing"
                     rm -f "$LIMAGE"
+                    unset LIMAGE_ISVALID
+                else
+                    LIMAGE_ISVALID="yes"
                 fi
+            else
+                unset LIMAGE_ISVALID
             fi
 
             # Create reduction
-            if [ ! -e "$LIMAGE" ]; then
+            if [ -z "$LIMAGE_ISVALID" ]; then
                 echo " ---> creating thumbnail"
                 if [[ $HIMAGE_WIDTH > $HIMAGE_HEIGHT ]]; then
-                    convert -resize $MAX_DIMENSION $HIMAGE .image
+                    convert -resize $MAX_DIMENSION "$HIMAGE" .image
                 else
-                    convert -resize x$MAX_DIMENSION $HIMAGE .image
+                    convert -resize x$MAX_DIMENSION "$HIMAGE" .image
                 fi
-                touch -r $HIMAGE .image
-                mv .image $LIMAGE
+                touch -r "$HIMAGE" .image
+                rm -f "$LIMAGE"
+                mv .image "$LIMAGE"
                 echo " ---> thumbnail: "`jhead -c "$LIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2`
             fi
         done
