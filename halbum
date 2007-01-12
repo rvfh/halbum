@@ -227,7 +227,11 @@ for LANGUAGE in `cat languages`; do
         fi
         if [ -d "$dir/$LANGUAGE_USED" ] && [ -r "$TITLES" ] && [ -r "$dir/$LANGUAGE_USED/index.html" ]; then
             TITLE=`grep -e "^TITLE:" "$TITLES" | sed "s/^TITLE://"`
-            echo "<h3><a href=\"$dir/$LANGUAGE_USED\">$TITLE</a></h3>" >> $LANGUAGE/.index
+            echo -n "<h3><a href=\"../$dir/$LANGUAGE_USED\">$TITLE" >> $LANGUAGE/.index
+            if [ "$LANGUAGE" != "$LANGUAGE_USED" ]; then
+                echo -n " <img src=\"../flags/$LANGUAGE_USED.gif\" width=28 height=15 alt=\"[$LANGUAGE_USED]\" title=\"`cat $ROOT/names/$LANGUAGE_USED.text`\">" >> $LANGUAGE/.index
+            fi
+            echo "</a></h3>" >> $LANGUAGE/.index
             echo " --> linked $dir/$LANGUAGE_USED"
         fi
     done
