@@ -38,7 +38,7 @@ footer() {
 }
 
 # Main loop goes through all directories in view
-ls -1tr | while read dir; do
+ls -1t | while read dir; do
     # If it contains a HiQ directory, it may be of interest
     if [ -d "$dir" ] && [ -d "$dir/HiQ" ]; then
         cd "$dir"
@@ -153,7 +153,7 @@ ls -1tr | while read dir; do
                     if ! grep -e "^$IMAGE:" "titles.text" >> /dev/null; then
                         echo "$IMAGE: untitled" >> "titles.text"
                     fi
-                    echo "<p align=\"center\"><b>`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`</b> <i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
+                    echo "<p align=\"center\"><b>`grep -e "^$IMAGE:" "titles.text" | sed "s%^$IMAGE:%%"`</b><br><i>(Date: `date +"%F %R %Z" -r $HIMAGE`, Size: `du --si $HIMAGE | cut -f 1`)</i></p>" >> $FILE
                     echo "</tr></td>" >> $FILE
                     echo "</table><p>&nbsp;</p>" >> $FILE
                 done
