@@ -17,7 +17,7 @@ if [ -n "$1" ] && [ -d "$1" ]; then
 fi
 ROOT=$PWD
 
-ALL_LANGUAGES=$ROOT/languages.$$
+ALL_LANGUAGES=$ROOT/.languages
 
 header() {
     echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"
@@ -29,6 +29,7 @@ header() {
     echo "</head>"
     echo "<BODY bgcolor=\"#333333\" text=\"#dddddd\" link=\"#95ddff\" vlink=\"#aaaaaa\" alink=\"#ff0000\">"
     echo ""
+    echo "<table bgcolor=\"#444444\" width=100% border=1 cellspacing=0 cellpadding=3><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>"
 }
 
 footer() {
@@ -46,8 +47,8 @@ ls -1t | while read dir; do
 
         # Check that the directory contains photographs
         if ! ls HiQ/*.[jJ][pP][gG] > /dev/null 2>&1; then
-            echo "No photograph files found in $dir"
-            exit 1
+            echo " --> no photograph files found, skipping"
+            continue
         fi
 
         # Convert new images
@@ -118,7 +119,12 @@ ls -1t | while read dir; do
         for LANGUAGE in `cat languages`; do
             mkdir -p $LANGUAGE
             cd $LANGUAGE
-            echo "Language $LANGUAGE"
+            echo -n " --> creating index for language $LANGUAGE"
+            if [ -r $ROOT/$LANGUAGE/name ]; then
+                echo " (`cat $ROOT/$LANGUAGE/name`)"
+            else
+                echo
+            fi
             echo $LANGUAGE >> $ALL_LANGUAGES
 
             # Create photos titles file
@@ -126,21 +132,14 @@ ls -1t | while read dir; do
                 touch "titles.text"
             fi
 
-            # Add bartitle
-            if ! grep -e "^BARTITLE:" "titles.text" >> /dev/null; then
-                echo "BARTITLE: untitled" >> "titles.text"
-            fi
-            BARTITLE=`grep -e "^BARTITLE:" "titles.text" | sed "s/^BARTITLE://"`
-
-            # Create header (and file)
-            header "$BARTITLE" > $FILE
-
             # Add title
             if ! grep -e "^TITLE:" "titles.text" >> /dev/null; then
                 echo "TITLE: untitled" >> "titles.text"
             fi
             TITLE=`grep -e "^TITLE:" "titles.text" | sed "s/^TITLE: *//"`
-            echo "<table bgcolor=\"#444444\" width=100% border=1 cellspacing=0 cellpadding=3><tr><td><h1 align=\"center\">$TITLE</h1></td></tr></table><p>&nbsp;</p>" >> $FILE
+
+            # Create header (and file)
+            header "$TITLE" > $FILE
 
             # Add new images to list
             if [ -z "$JOB_DONE" ]; then
@@ -158,9 +157,6 @@ ls -1t | while read dir; do
                     echo "</table><p>&nbsp;</p>" >> $FILE
                 done
             fi
-
-            # Add date
-            echo "<I>Last updated: `date +"%F %R %Z" -r $FILE`</I>" >> $FILE
 
             # Add footer
             footer >> $FILE
@@ -189,9 +185,11 @@ for LANGUAGE in `cat languages`; do
     mkdir -p $LANGUAGE
     cd $LANGUAGE
     echo "Language $LANGUAGE"
+    TITLE="Photos"
 
-    header "Photos" > $FILE
-    echo "<H1>Photos</H1>" >> $FILE
+    header "$TITLE" > $FILE
+
+    echo "<table align=\"center\"><tr><td>" >> $FILE
     ls -tr .. | while read dir; do
         image_dir="../$dir"
         lang_dir="../$dir/$LANGUAGE"
@@ -200,11 +198,12 @@ for LANGUAGE in `cat languages`; do
         fi
         if [ -d "$lang_dir" ] && [ -r "$lang_dir/titles.text" ] && [ -r "$lang_dir/index.html" ]; then
             TITLE=`grep -e "^TITLE:" "$lang_dir/titles.text" | sed "s/^TITLE://"`
-#            echo "<H3><A HREF=\"$lang_dir\">$TITLE</A> (`ls -l "$image_dir"/*.[jJ][pP][gG] | grep -c "/"` photos, `du -h --max-depth=0 -S "$lang_dir" | cut -f 1`)</H3>" >> $FILE
-            echo "<H3><A HREF=\"$lang_dir\">$TITLE</A></H3>" >> $FILE
+#            echo "<H3><a href=\"$lang_dir\">$TITLE</A> (`ls -l "$image_dir"/*.[jJ][pP][gG] | grep -c "/"` photos, `du -h --max-depth=0 -S "$lang_dir" | cut -f 1`)</H3>" >> $FILE
+            echo "<h3><a href=\"$lang_dir\">$TITLE</a></h3>" >> $FILE
             echo "Linked $lang_dir"
         fi
     done
+    echo "</td></tr></table>" >> $FILE
     footer >> $FILE
 
     # Put new file online
@@ -214,14 +213,14 @@ for LANGUAGE in `cat languages`; do
 done
 
 # Now that the directory dates are set, fill in the main index file
-header "Choose your language" > $FILE
-echo "<center><H1>Choose your language</H1></center>" >> $FILE
-echo "<center>" >> $FILE
+TITLE="Choose your language"
+header "$TITLE" > $FILE
+echo "<table align=\"center\"><tr><td>" >> $FILE
 for LANGUAGE in `cat languages`; do
-    echo "<A HREF=\"$LANGUAGE\"><IMG SRC=\"$LANGUAGE/flag.gif\" WIDTH=144 HEIGHT=76 ALT=\"`cat $LANGUAGE/name`\"></A>" >> $FILE
+    echo "<a href=\"$LANGUAGE\"><img src=\"$LANGUAGE/flag.gif\" width=144 height=76 alt=\"`cat $LANGUAGE/name`\" title=\"`cat $LANGUAGE/name`\"></a>" >> $FILE
 done
-echo "</center>" >> $FILE
-echo "<p><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
+echo "</td></tr></table>" >> $FILE
+echo "<p align=\"center\"><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
 footer >> $FILE
 
 # Put new file online
