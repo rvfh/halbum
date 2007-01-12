@@ -65,7 +65,7 @@ ls -1t | while read dir; do
         for HIMAGE in `ls -tr *.[jJ][pP][gG]`; do
             HIMAGE_STAMP=".$HIMAGE"
             # TODO Remove size check
-            if [ ! -e "$HIMAGE_STAMP" -a -s "$HIMAGE_STAMP" ]; then
+            if [ ! -e "$HIMAGE_STAMP" -o ! -s "$HIMAGE_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
                 if chmod 644 "$HIMAGE" && jhead -ft "$HIMAGE" > /dev/null; then
                     jhead -c "$HIMAGE" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$HIMAGE_STAMP"
