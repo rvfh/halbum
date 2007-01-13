@@ -72,24 +72,28 @@ ls -1t | while read dir; do
 
         # Make sure permissions and date are correct
         echo " --> checking originals"
-        for ORIGINAL in `ls -tr originals/*.[jJ][pP][gG]`; do
+        ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
             IMAGE=`basename "$ORIGINAL"`
             echo " ---> checking $IMAGE"
+
             ORIGINAL_STAMP="originals/.$IMAGE"
-            if [ ! -e "$ORIGINAL_STAMP" ]; then
+            if [ ! -e "$ORIGINAL_STAMP" -o ! -s "$ORIGINAL_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
                 if chmod 644 "$ORIGINAL" && jhead -ft "$ORIGINAL" > /dev/null; then
                     jhead -c "$ORIGINAL" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$ORIGINAL_STAMP"
                 fi
             fi
+            ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
+            ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
+            ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
 
             # Check reduction dimensions
             REDUCTION="reductions/$IMAGE"
             REDUCTION_STAMP="reductions/.$IMAGE"
-            ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
-            ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
-            ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
             if [ -e "$REDUCTION" ]; then
+                if [ ! -e "$REDUCTION_STAMP" -o ! -s "$REDUCTION_STAMP" ]; then
+                    jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"
+                fi
                 REDUCTION_DIMENSIONS=`cat "$REDUCTION_STAMP"`
                 if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
                     # Landscape
@@ -117,9 +121,8 @@ ls -1t | while read dir; do
                     convert -resize x$REDUCTIONS_SIZE "$ORIGINAL" .image
                 fi
                 rm -f "$REDUCTION" "$REDUCTION_STAMP"
-                if jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"; then
-                    mv .image "$REDUCTION"
-                fi
+                mv .image "$REDUCTION"
+                jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"
             fi
         done
 
@@ -179,7 +182,7 @@ ls -1t | while read dir; do
             echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
             # Convert images
-            for ORIGINAL in `ls -tr originals/*.[jJ][pP][gG]`; do
+            ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
                 IMAGE=`basename "$ORIGINAL"`
                 REDUCTION="reductions/$IMAGE"
                 echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
@@ -191,7 +194,7 @@ ls -1t | while read dir; do
                 else
                     IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r $ORIGINAL`, Size: `du --si $ORIGINAL | cut -f 1`)</i><br><a href=\"#top\">back to top</a></p>" >> $LANGUAGE/.index
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r "$ORIGINAL"`, Size: `du --si "$ORIGINAL" | cut -f 1`)</i><br><a href=\"#top\">back to top</a></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
 
@@ -202,6 +205,7 @@ ls -1t | while read dir; do
             mv $LANGUAGE/.index $LANGUAGE/index.html
         done
 
+	ORIGINAL=`ls -1tr originals/*.[jJ][pP][gG] | tail -1`
         touch -r "$ORIGINAL" .
         cd ..
     fi
