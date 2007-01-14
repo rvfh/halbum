@@ -225,6 +225,7 @@ for LANGUAGE in $LANGUAGES; do
 
     header "$TITLE" "../.." > $LANGUAGE/.index
 
+    # Re-offer language selection
     echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
     for OTHER_LANGUAGE in $LANGUAGES; do
         if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
@@ -235,22 +236,34 @@ for LANGUAGE in $LANGUAGES; do
 
     echo "<table align=\"center\"><tr><td>" >> $LANGUAGE/.index
     ls -1tr | while read dir; do
+        if [ ! -r "$dir/languages" ]; then
+            continue
+        fi
         TITLES="$dir/titles-$LANGUAGE.text"
         if [ ! -r "$TITLES" ]; then
             # Default to English
-            LANGUAGE_USED="en"
+            LANGUAGE_USED=`head -1 "$dir/languages"`
             TITLES="$dir/titles-$LANGUAGE_USED.text"
         else
             LANGUAGE_USED="$LANGUAGE"
         fi
         if [ -d "$dir/$LANGUAGE_USED" ] && [ -r "$TITLES" ] && [ -r "$dir/$LANGUAGE_USED/index.html" ]; then
+            echo " --> linking $dir/$LANGUAGE_USED"
             TITLE=`grep -e "^TITLE:" "$TITLES" | sed "s/^TITLE://"`
-            echo -n "<h3><a href=\"../$dir/$LANGUAGE_USED\">$TITLE" >> $LANGUAGE/.index
+            echo "<h3>" >> $LANGUAGE/.index
+            # Add flag if wrong language
             if [ "$LANGUAGE" != "$LANGUAGE_USED" ]; then
-                echo -n " <img src=\"../flags/$LANGUAGE_USED.gif\" width=28 height=15 alt=\"[$LANGUAGE_USED]\" title=\"`cat $ROOT/names/$LANGUAGE_USED.text`\">" >> $LANGUAGE/.index
+                echo " <img src=\"../flags/$LANGUAGE_USED.gif\" width=28 height=15 alt=\"[$LANGUAGE_USED]\" title=\"`cat $ROOT/names/$LANGUAGE_USED.text`\">" >> $LANGUAGE/.index
             fi
-            echo "</a></h3>" >> $LANGUAGE/.index
-            echo " --> linked $dir/$LANGUAGE_USED"
+            echo "<a href=\"../$dir/$LANGUAGE_USED\">$TITLE</a>" >> $LANGUAGE/.index
+            # Add flags for other languages
+            for OTHER_LANGUAGE in `cat "$dir/languages"`; do
+                if [ "$OTHER_LANGUAGE" != "$LANGUAGE_USED" ]; then
+                    echo " ---> adding link to: $OTHER_LANGUAGE"
+                    echo " <a href=\"../$dir/$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+                fi
+            done
+            echo "</h3>" >> $LANGUAGE/.index
         fi
     done
     echo "</td></tr></table>" >> $LANGUAGE/.index

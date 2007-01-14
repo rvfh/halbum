@@ -29,7 +29,7 @@ photos
         |-- PIERRE 356.JPG
         `-- PIERRE 427.JPG
 
-Now run halbum like so: './halbum'.
+Now run halbum like so: './halbum' (from the root) or './halbum <path to root>.
 
 Amongst other things, halbum will create files called titles-en.text where you
 can define the title of the album and a comment for each picture.
@@ -40,4 +40,5 @@ By default, halbum creates a 'languages' file for each album containing 'en',
 for English. You can add other languages here. 'br' (for Brazil) and 'fr'
 (for France) are supported so far.
 
-English is mandatory for now.
+You can of course create the languages file with you own languages prior to
+running the script.
