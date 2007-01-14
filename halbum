@@ -19,6 +19,18 @@ ROOT=$PWD
 
 ALL_LANGUAGES=$ROOT/.languages
 
+get_languagename() {
+    grep -e "^name:" $ROOT/names/$1.text | sed "s/^name: *//"
+}
+
+get_backtotop() {
+    grep -e "^backtotop:" $ROOT/names/$1.text | sed "s/^backtotop: *//"
+}
+
+get_photos() {
+    grep -e "^photos:" $ROOT/names/$1.text | sed "s/^photos: *//"
+}
+
 header() {
     echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"
     echo "<html>"
@@ -146,8 +158,9 @@ ls -1t | while read dir; do
             fi
 
             echo -n " ---> creating index for language $LANGUAGE"
-            if [ -r $ROOT/names/$LANGUAGE.text ]; then
-                echo " (`cat $ROOT/names/$LANGUAGE.text`)"
+            LANGUAGE_NAME=`get_languagename "$LANGUAGE"`
+            if [ -n "$LANGUAGE_NAME" ]; then
+                echo " ($LANGUAGE_NAME)"
             else
                 echo
             fi
@@ -176,12 +189,13 @@ ls -1t | while read dir; do
             echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
             for OTHER_LANGUAGE in $LANGUAGES; do
                 if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
-                    echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+                    OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+                    echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
                 fi
             done
             echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
-            # Convert images
+            # Link images
             ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
                 IMAGE=`basename "$ORIGINAL"`
                 REDUCTION="reductions/$IMAGE"
@@ -194,7 +208,8 @@ ls -1t | while read dir; do
                 else
                     IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r "$ORIGINAL"`, Size: `du --si "$ORIGINAL" | cut -f 1`)</i><br><a href=\"#top\">back to top</a></p>" >> $LANGUAGE/.index
+                BACKTOTOP=`get_backtotop $LANGUAGE`
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r "$ORIGINAL"`, Size: `du --si "$ORIGINAL" | cut -f 1`)</i><br><a href=\"#top\">$BACKTOTOP</a></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
 
@@ -221,7 +236,7 @@ LANGUAGES=`cat languages`
 for LANGUAGE in $LANGUAGES; do
     mkdir -p $LANGUAGE
     echo " -> language $LANGUAGE"
-    TITLE="Photos"
+    TITLE=`get_photos $LANGUAGE`
 
     header "$TITLE" "../.." > $LANGUAGE/.index
 
@@ -229,7 +244,8 @@ for LANGUAGE in $LANGUAGES; do
     echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
     for OTHER_LANGUAGE in $LANGUAGES; do
         if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
-            echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+            OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+            echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
         fi
     done
     echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
@@ -242,25 +258,27 @@ for LANGUAGE in $LANGUAGES; do
         TITLES="$dir/titles-$LANGUAGE.text"
         if [ ! -r "$TITLES" ]; then
             # Default to English
-            LANGUAGE_USED=`head -1 "$dir/languages"`
-            TITLES="$dir/titles-$LANGUAGE_USED.text"
+            USED_LANGUAGE=`head -1 "$dir/languages"`
+            TITLES="$dir/titles-$USED_LANGUAGE.text"
         else
-            LANGUAGE_USED="$LANGUAGE"
+            USED_LANGUAGE="$LANGUAGE"
         fi
-        if [ -d "$dir/$LANGUAGE_USED" ] && [ -r "$TITLES" ] && [ -r "$dir/$LANGUAGE_USED/index.html" ]; then
-            echo " --> linking $dir/$LANGUAGE_USED"
+        if [ -d "$dir/$USED_LANGUAGE" ] && [ -r "$TITLES" ] && [ -r "$dir/$USED_LANGUAGE/index.html" ]; then
+            echo " --> linking $dir/$USED_LANGUAGE"
             TITLE=`grep -e "^TITLE:" "$TITLES" | sed "s/^TITLE://"`
             echo "<h3>" >> $LANGUAGE/.index
             # Add flag if wrong language
-            if [ "$LANGUAGE" != "$LANGUAGE_USED" ]; then
-                echo " <img src=\"../flags/$LANGUAGE_USED.gif\" width=28 height=15 alt=\"[$LANGUAGE_USED]\" title=\"`cat $ROOT/names/$LANGUAGE_USED.text`\">" >> $LANGUAGE/.index
+            if [ "$LANGUAGE" != "$USED_LANGUAGE" ]; then
+                USED_LANGUAGE_NAME=`get_languagename "$USED_LANGUAGE"`
+                echo " <img src=\"../flags/$USED_LANGUAGE.gif\" width=28 height=15 alt=\"[$USED_LANGUAGE]\" title=\"$USED_LANGUAGE_NAME\">" >> $LANGUAGE/.index
             fi
-            echo "<a href=\"../$dir/$LANGUAGE_USED\">$TITLE</a>" >> $LANGUAGE/.index
+            echo "<a href=\"../$dir/$USED_LANGUAGE\">$TITLE</a>" >> $LANGUAGE/.index
             # Add flags for other languages
             for OTHER_LANGUAGE in `cat "$dir/languages"`; do
-                if [ "$OTHER_LANGUAGE" != "$LANGUAGE_USED" ]; then
+                if [ "$OTHER_LANGUAGE" != "$USED_LANGUAGE" ]; then
                     echo " ---> adding link to: $OTHER_LANGUAGE"
-                    echo " <a href=\"../$dir/$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"`cat $ROOT/names/$OTHER_LANGUAGE.text`\"></a>" >> $LANGUAGE/.index
+                    OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+                    echo " <a href=\"../$dir/$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
                 fi
             done
             echo "</h3>" >> $LANGUAGE/.index
@@ -278,7 +296,8 @@ TITLE="Choose your language"
 header "$TITLE" > $FILE
 echo "<table align=\"center\"><tr><td>" >> $FILE
 for LANGUAGE in `cat languages`; do
-    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"`cat $ROOT/names/$LANGUAGE.text`\" title=\"`cat $ROOT/names/$LANGUAGE.text`\"></a>" >> $FILE
+    LANGUAGE_NAME=`get_languagename "$LANGUAGE"`
+    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"$LANGUAGE_NAME\" title=\"$LANGUAGE_NAME\"></a>" >> $FILE
 done
 echo "</td></tr></table>" >> $FILE
 echo "<p align=\"center\"><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
