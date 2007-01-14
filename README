@@ -1,0 +1,43 @@
+DESCRIPTION
+
+This is a multilingual online photo album generation program. The name halbum
+has been chosen to follow in the path of my backup program: hbackup.
+
+Why yet another photo album program? Because I wanted something geared towards
+what I need: multilinguage support, headless operation, low memory/CPU usage.
+
+BASIC OPERATION
+
+In the root of the photo albums collection (for example a 'photos' directory),
+you want to copy the halbum script and the flags and names directories.
+
+You can then create directories for your albums in that root directory, such as
+'summer holidays 2006' or 'Pierre, 3 years old'.
+
+In each directory, create a 'originals' subdirectory and put your original
+photos in there.
+
+The structure will look like this:
+
+photos
+|-- summer holidays 2006
+|   `-- originals
+|       |-- summer 1.jpg
+|       `-- summer 2.jpg
+`-- Pierre, 3 years old
+    `-- originals
+        |-- PIERRE 356.JPG
+        `-- PIERRE 427.JPG
+
+Now run halbum like so: './halbum'.
+
+Amongst other things, halbum will create files called titles-en.text where you
+can define the title of the album and a comment for each picture.
+
+OTHER LANGUAGES
+
+By default, halbum creates a 'languages' file for each album containing 'en',
+for English. You can add other languages here. 'br' (for Brazil) and 'fr'
+(for France) are supported so far.
+
+English is mandatory for now.
