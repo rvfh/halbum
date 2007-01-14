@@ -1,0 +1,16 @@
+DEPENDENCIES
+
+* jhead: for image information gathering
+* imagemagick: for image resizing
+
+COMPILATION/TEST
+
+n/a
+
+INSTALLATION
+
+n/a
+
+LANGUAGE
+
+This is all written in Bash scripting language.
