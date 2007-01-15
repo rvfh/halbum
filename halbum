@@ -8,8 +8,6 @@ PROGNAME=`basename $0`
 
 REDUCTIONS_SIZE=320
 
-FILE=.index
-
 # If we receive a path as argument, work within it
 # Usually /srv/http/photos
 if [ -n "$1" ] && [ -d "$1" ]; then
@@ -19,16 +17,24 @@ ROOT=$PWD
 
 ALL_LANGUAGES=$ROOT/.languages
 
-get_languagename() {
-    grep -e "^name:" $ROOT/names/$1.text | sed "s/^name: *//"
+tr_getfield() {
+    grep -e "^$2:" $ROOT/names/$1.text | sed "s/^$2: *//"
 }
 
-get_backtotop() {
-    grep -e "^backtotop:" $ROOT/names/$1.text | sed "s/^backtotop: *//"
+tr_languagename() {
+    tr_getfield "$1" "name"
 }
 
-get_photos() {
-    grep -e "^photos:" $ROOT/names/$1.text | sed "s/^photos: *//"
+tr_backtotop() {
+    tr_getfield "$1" "backtotop"
+}
+
+tr_photos() {
+    tr_getfield "$1" "photos"
+}
+
+tr_generated() {
+    tr_getfield "$1" "generated"
 }
 
 header() {
@@ -158,7 +164,7 @@ ls -1t | while read dir; do
             fi
 
             echo -n " ---> creating index for language $LANGUAGE"
-            LANGUAGE_NAME=`get_languagename "$LANGUAGE"`
+            LANGUAGE_NAME=`tr_languagename "$LANGUAGE"`
             if [ -n "$LANGUAGE_NAME" ]; then
                 echo " ($LANGUAGE_NAME)"
             else
@@ -189,7 +195,7 @@ ls -1t | while read dir; do
             echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
             for OTHER_LANGUAGE in $LANGUAGES; do
                 if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
-                    OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+                    OTHER_LANGUAGE_NAME=`tr_languagename "$OTHER_LANGUAGE"`
                     echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
                 fi
             done
@@ -208,7 +214,7 @@ ls -1t | while read dir; do
                 else
                     IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
                 fi
-                BACKTOTOP=`get_backtotop $LANGUAGE`
+                BACKTOTOP=`tr_backtotop $LANGUAGE`
                 echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r "$ORIGINAL"`, Size: `du --si "$ORIGINAL" | cut -f 1`)</i><br><a href=\"#top\">$BACKTOTOP</a></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
             done
@@ -236,7 +242,7 @@ LANGUAGES=`cat languages`
 for LANGUAGE in $LANGUAGES; do
     mkdir -p $LANGUAGE
     echo " -> language $LANGUAGE"
-    TITLE=`get_photos $LANGUAGE`
+    TITLE=`tr_photos $LANGUAGE`
 
     header "$TITLE" "../.." > $LANGUAGE/.index
 
@@ -244,7 +250,7 @@ for LANGUAGE in $LANGUAGES; do
     echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
     for OTHER_LANGUAGE in $LANGUAGES; do
         if [ "$OTHER_LANGUAGE" != "$LANGUAGE" ]; then
-            OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+            OTHER_LANGUAGE_NAME=`tr_languagename "$OTHER_LANGUAGE"`
             echo "<a href=\"../$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
         fi
     done
@@ -269,7 +275,7 @@ for LANGUAGE in $LANGUAGES; do
             echo "<h3>" >> $LANGUAGE/.index
             # Add flag if wrong language
             if [ "$LANGUAGE" != "$USED_LANGUAGE" ]; then
-                USED_LANGUAGE_NAME=`get_languagename "$USED_LANGUAGE"`
+                USED_LANGUAGE_NAME=`tr_languagename "$USED_LANGUAGE"`
                 echo " <img src=\"../flags/$USED_LANGUAGE.gif\" width=28 height=15 alt=\"[$USED_LANGUAGE]\" title=\"$USED_LANGUAGE_NAME\">" >> $LANGUAGE/.index
             fi
             echo "<a href=\"../$dir/$USED_LANGUAGE\">$TITLE</a>" >> $LANGUAGE/.index
@@ -277,7 +283,7 @@ for LANGUAGE in $LANGUAGES; do
             for OTHER_LANGUAGE in `cat "$dir/languages"`; do
                 if [ "$OTHER_LANGUAGE" != "$USED_LANGUAGE" ]; then
                     echo " ---> adding link to: $OTHER_LANGUAGE"
-                    OTHER_LANGUAGE_NAME=`get_languagename "$OTHER_LANGUAGE"`
+                    OTHER_LANGUAGE_NAME=`tr_languagename "$OTHER_LANGUAGE"`
                     echo " <a href=\"../$dir/$OTHER_LANGUAGE\"><img src=\"../flags/$OTHER_LANGUAGE.gif\" width=28 height=15 alt=\"[$OTHER_LANGUAGE]\" title=\"$OTHER_LANGUAGE_NAME\"></a>" >> $LANGUAGE/.index
                 fi
             done
@@ -285,6 +291,8 @@ for LANGUAGE in $LANGUAGES; do
         fi
     done
     echo "</td></tr></table>" >> $LANGUAGE/.index
+    LINE=`tr_generated "$LANGUAGE"`
+    echo "<p align=\"center\"><i>`echo $LINE | cut -d ' ' -f 1`: `date +"%F %R %Z" -r $LANGUAGE/.index` `echo $LINE | cut -d ' ' -f 2` <a href=\"$PROGNAME\">`echo $LINE | cut -d ' ' -f 3`</a> `echo $LINE | cut -d ' ' -f 4`</i></p>" >> $LANGUAGE/.index
     footer >> $LANGUAGE/.index
 
     # Put new file online
@@ -293,15 +301,14 @@ done
 
 # Now that the directory dates are set, fill in the main index file
 TITLE="Choose your language"
-header "$TITLE" > $FILE
-echo "<table align=\"center\"><tr><td>" >> $FILE
+header "$TITLE" > .index
+echo "<table align=\"center\"><tr><td>" >> .index
 for LANGUAGE in `cat languages`; do
-    LANGUAGE_NAME=`get_languagename "$LANGUAGE"`
-    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"$LANGUAGE_NAME\" title=\"$LANGUAGE_NAME\"></a>" >> $FILE
+    LANGUAGE_NAME=`tr_languagename "$LANGUAGE"`
+    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"$LANGUAGE_NAME\" title=\"$LANGUAGE_NAME\"></a>" >> .index
 done
-echo "</td></tr></table>" >> $FILE
-echo "<p align=\"center\"><i>Generated: `date +"%F %R %Z" -r $FILE` using <a href=\"$PROGNAME\">this</a> script</i></p>" >> $FILE
-footer >> $FILE
+echo "</td></tr></table>" >> .index
+footer >> .index
 
 # Put new file online
-mv $FILE index.html
+mv .index index.html
