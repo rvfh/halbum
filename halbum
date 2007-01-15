@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# (c) 2006 Herve Fache
+# (c) 2004-2007 Herve Fache
 # License: GPL v2
 #
 
@@ -9,7 +9,7 @@ PROGNAME=`basename $0`
 REDUCTIONS_SIZE=320
 
 # If we receive a path as argument, work within it
-# Usually /srv/http/photos
+# Usually /var/www/photos
 if [ -n "$1" ] && [ -d "$1" ]; then
     cd "$1"
 fi
@@ -101,9 +101,6 @@ ls -1t | while read dir; do
                     jhead -c "$ORIGINAL" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$ORIGINAL_STAMP"
                 fi
             fi
-            ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
-            ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
-            ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
 
             # Check reduction dimensions
             REDUCTION="reductions/$IMAGE"
@@ -113,7 +110,9 @@ ls -1t | while read dir; do
                     jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"
                 fi
                 REDUCTION_DIMENSIONS=`cat "$REDUCTION_STAMP"`
-                if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
+                REDUCTION_WIDTH=${REDUCTION_DIMENSIONS/x*/}
+                REDUCTION_HEIGHT=${REDUCTION_DIMENSIONS/*x/}
+                if [[ $REDUCTION_WIDTH > $REDUCTION_HEIGHT ]]; then
                     # Landscape
                     REDUCTION_DIMENSION=${REDUCTION_DIMENSIONS/x*/}
                 else
@@ -133,6 +132,9 @@ ls -1t | while read dir; do
             # Create reduction
             if [ -z "$REDUCTION_ISVALID" ]; then
                 echo " ---> creating reduction"
+                ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
+                ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
+                ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
                 if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
                     convert -resize $REDUCTIONS_SIZE "$ORIGINAL" .image
                 else
