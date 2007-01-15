@@ -300,14 +300,25 @@ for LANGUAGE in $LANGUAGES; do
 done
 
 # Now that the directory dates are set, fill in the main index file
-TITLE="Choose your language"
+
+TITLE="&€^-!/%¥=*£+\$?"
 header "$TITLE" > .index
-echo "<table align=\"center\"><tr><td>" >> .index
+echo "<table align=\"center\">" >> .index
+# Flags
+echo "<tr>" >> .index
 for LANGUAGE in `cat languages`; do
     LANGUAGE_NAME=`tr_languagename "$LANGUAGE"`
-    echo "<a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"$LANGUAGE_NAME\" title=\"$LANGUAGE_NAME\"></a>" >> .index
+    echo "<td align=\"center\"><a href=\"$LANGUAGE\"><img src=\"flags/$LANGUAGE.gif\" width=144 height=76 alt=\"$LANGUAGE_NAME\" title=\"$LANGUAGE_NAME\"></a></td>" >> .index
 done
-echo "</td></tr></table>" >> .index
+echo "</tr>" >> .index
+# Names
+echo "<tr>" >> .index
+for LANGUAGE in `cat languages`; do
+    LANGUAGE_NAME=`tr_languagename "$LANGUAGE"`
+    echo "<td align=\"center\"><a href=\"$LANGUAGE\">$LANGUAGE_NAME</a></td>" >> .index
+done
+echo "</tr>" >> .index
+echo "</table>" >> .index
 footer >> .index
 
 # Put new file online
