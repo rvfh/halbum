@@ -25,6 +25,10 @@ tr_languagename() {
     tr_getfield "$1" "name"
 }
 
+tr_back() {
+    tr_getfield "$1" "back"
+}
+
 tr_backtotop() {
     tr_getfield "$1" "backtotop"
 }
@@ -49,15 +53,11 @@ header() {
     echo ""
     echo "<a name=\"top\"></a>"
     echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5>"
-    echo "<tr><td><h1 align=\"center\">"
-    if [ -n "$2" ]; then
-        echo "<a href=\"$2\">"
+    echo "<tr><td align=\"center\"><h1>$1</h1>"
+    if [ -n "$3" ]; then
+        echo "<a href=\"$2\">$3</a>"
     fi
-    echo "$1"
-    if [ -n "$2" ]; then
-        echo "</a>"
-    fi
-    echo "</h1></td></tr>"
+    echo "</td></tr>"
     echo "</table><p>&nbsp;</p>"
 }
 
@@ -191,7 +191,7 @@ ls -1t | while read dir; do
             fi
 
             # Create header (and file)
-            header "$TITLE" "../../$LANGUAGE" > $LANGUAGE/.index
+            header "$TITLE" "../../$LANGUAGE" "`tr_back "$LANGUAGE"`" > $LANGUAGE/.index
 
             # Links to other languages
             echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
@@ -244,9 +244,8 @@ LANGUAGES=`cat languages`
 for LANGUAGE in $LANGUAGES; do
     mkdir -p $LANGUAGE
     echo " -> language $LANGUAGE"
-    TITLE=`tr_photos $LANGUAGE`
 
-    header "$TITLE" "../.." > $LANGUAGE/.index
+    header "`tr_photos "$LANGUAGE"`" ".." "`tr_back "$LANGUAGE"`" > $LANGUAGE/.index
 
     # Re-offer language selection
     echo "<table align=\"center\"><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
@@ -303,8 +302,7 @@ done
 
 # Now that the directory dates are set, fill in the main index file
 
-TITLE="&€^-!/%¥=*£+\$?"
-header "$TITLE" > .index
+header "&€^-!/%¥=*£+\$?" ".." "<---" > .index
 echo "<table align=\"center\">" >> .index
 # Flags
 echo "<tr>" >> .index
