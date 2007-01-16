@@ -22,7 +22,7 @@ tr_getfield() {
 }
 
 tr_languagename() {
-    tr_getfield "$1" "name"
+    tr_getfield "$1" "languagename"
 }
 
 tr_back() {
@@ -41,6 +41,10 @@ tr_generated() {
     tr_getfield "$1" "generated"
 }
 
+tr_slideshow() {
+    tr_getfield "$1" "slideshow"
+}
+
 header() {
     echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"
     echo "<html>"
@@ -55,7 +59,7 @@ header() {
     echo "<table align=\"center\" bgcolor=\"#444444\" border=1 cellspacing=3 cellpadding=5>"
     echo "<tr><td align=\"center\"><h1>$1</h1>"
     if [ -n "$3" ]; then
-        echo "<a href=\"$2\">$3</a>"
+        echo "<a href='$2'>$3</a>"
     fi
     echo "</td></tr>"
     echo "</table><p>&nbsp;</p>"
@@ -65,6 +69,33 @@ footer() {
     echo ""
     echo "</body>"
     echo "</html>"
+}
+
+slideshow_header() {
+    echo "<script language=\"JavaScript\">"
+    echo "//By Paul Davis - www.kaosweaver.com"
+    echo "var j,d=\"\",l=\"\",m=\"\",p=\"\",q=\"\",z=\"\",list= new Array()"
+}
+
+slideshow_image() {
+    echo "list[list.length]='$1';"
+}
+
+slideshow_footer() {
+    echo "j=parseInt(Math.random()*list.length);"
+    echo "j=(isNaN(j))?0:j;"
+    echo "document.write(\"<img name='seqSlideShow' src='\"+list[j]+\"' border=0 >\");"
+    echo "function seqSlideShow(t,l) {"
+    echo "    x=document.seqSlideShow;"
+    echo "    j=l;"
+    echo "    j++;"
+    echo "    if (j==list.length) j=0;"
+    echo "    x.src=list[j];"
+    echo "    setTimeout(\"seqSlideShow(\"+t+\",\"+j+\")\",t);"
+    echo "}"
+    echo "</script>"
+
+    echo "<script language=\"JavaScript\"> seqSlideShow(2000,-1); </script>"
 }
 
 # Check needed tools
@@ -203,7 +234,20 @@ ls -1t | while read dir; do
             done
             echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
-            # Link images
+            # Slideshow
+            echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3>" >> $LANGUAGE/.index
+            echo "<tr><td align=\"center\" bgcolor=\"#444444\"><b>`tr_slideshow "$LANGUAGE"`</b></tr></td>" >> $LANGUAGE/.index
+            echo "<tr><td align=\"center\" bgcolor=\"#444444\" height=`expr $REDUCTIONS_SIZE + 10` width=`expr $REDUCTIONS_SIZE + 10`>" >> $LANGUAGE/.index
+            slideshow_header >> $LANGUAGE/.index
+            ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
+                IMAGE=`basename "$ORIGINAL"`
+                REDUCTION="reductions/$IMAGE"
+                slideshow_image "../$REDUCTION" >> $LANGUAGE/.index
+            done
+            slideshow_footer >> $LANGUAGE/.index
+            echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
+
+            # Album
             ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
                 IMAGE=`basename "$ORIGINAL"`
                 REDUCTION="reductions/$IMAGE"
@@ -224,7 +268,7 @@ ls -1t | while read dir; do
             # Add footer
             footer >> $LANGUAGE/.index
 
-            # Put new file online
+            # Put new files online
             mv $LANGUAGE/.index $LANGUAGE/index.html
         done
 
