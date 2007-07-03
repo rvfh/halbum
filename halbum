@@ -198,7 +198,7 @@ ls -1t | while read dir; do
             continue
         fi
         mkdir -p reductions
-        rm -f reductions/list
+        rm -f reductions/.list
 
         # Make sure permissions and date are correct
         echo " --> checking reductions"
@@ -272,8 +272,14 @@ ls -1t | while read dir; do
                 image_size "$REDUCTION" "$REDUCTION_TYPE" > "$REDUCTION_STAMP"
             fi
             ORIGINAL_EXT=`echo "$ORIGINAL_NAME" | sed "s%^$IMAGE_NAME\.%%"`
-            echo "$ORIGINAL_EXT $REDUCTION" >> reductions/list
+            echo "$ORIGINAL_EXT $REDUCTION" >> reductions/.list
         done
+
+        if ! diff -q reductions/.list reductions/list > /dev/null; then
+            mv reductions/.list reductions/list
+        else
+            rm -f reductions/.list
+        fi
 
         # Make sure we have at least one language
         if  [ ! -r languages ]; then
@@ -290,7 +296,7 @@ ls -1t | while read dir; do
         for LANGUAGE in $LANGUAGES; do
             echo $LANGUAGE >> $TMP_LANGUAGES
             TITLES="titles-$LANGUAGE.text"
-            if [ -r $LANGUAGE/index.html -a $TITLES -ot $LANGUAGE/index.html ]; then
+            if [ -r $LANGUAGE/index.html -a $TITLES -ot $LANGUAGE/index.html -a reductions/list -ot $LANGUAGE/index.html ]; then
                 continue
             fi
 
