@@ -220,7 +220,7 @@ ls -1t | while read dir; do
             fi
 
             # This determines the reduction image format
-            REDUCTION_EXT="bmp"
+            REDUCTION_EXT="jpg"
 
             # Check reduction dimensions
             REDUCTION_NAME="$IMAGE_NAME.$REDUCTION_EXT"
