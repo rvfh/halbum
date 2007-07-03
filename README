@@ -6,10 +6,13 @@ has been chosen to follow in the path of my backup program: hbackup.
 Why yet another photo album program? Because I wanted something geared towards
 what I need: multilinguage support, headless operation, low memory/CPU usage.
 
+Please read the INSTALL file to find out about necessary external programs.
+
 BASIC OPERATION
 
 In the root of the photo albums collection (for example a 'photos' directory),
-you want to copy the halbum script and the flags and names directories.
+you want to copy (or link) the halbum script and the flags and names
+directories.
 
 You can then create directories for your albums in that root directory, such as
 'summer holidays 2006' or 'Pierre, 3 years old'.

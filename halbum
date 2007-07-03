@@ -15,7 +15,9 @@ if [ -n "$1" ] && [ -d "$1" ]; then
 fi
 ROOT=$PWD
 
-ALL_LANGUAGES=$ROOT/.languages
+EXPR_JPEG="\.[jJ][pP][eE]\?[gG]$"
+EXPR_PNG="\.[pP][nN][gG]$"
+EXPR_BMP="\.[bB][mM][pP]$"
 
 tr_getfield() {
     grep -e "^$2:" $ROOT/names/$1.text | sed "s/^$2: *//"
@@ -98,11 +100,89 @@ slideshow_footer() {
     echo "<script language=\"JavaScript\"> seqSlideShow(2000,-1); </script>"
 }
 
+image_jpeg_size() {
+    if ! jhead -c "$1" | cut -d '"' -f 3 | cut -d ' ' -f 2; then
+        return 1
+    fi
+}
+
+image_png_size() {
+    if ! file -b "$1" | cut -d , -f 2 | sed "s% %%g"; then
+        return 1
+    fi
+}
+
+image_bmp_size() {
+    if ! file -b "$1" | cut -d , -f 3 | cut -d x -f 1-2 | sed "s% %%g"; then
+        return 1
+    fi
+}
+
+image_type() {
+    if echo "$1" | grep -e ".$EXPR_JPEG" > /dev/null; then
+        echo "JPEG"
+    elif echo "$1" | grep -e ".$EXPR_PNG" > /dev/null; then
+        echo "PNG"
+    elif echo "$1" | grep -e ".$EXPR_BMP" > /dev/null; then
+        echo "BMP"
+    else
+        echo ""
+    fi
+}
+
+image_name() {
+    local type
+    if [ -z "$2" ]; then
+        type=`image_type "$1"`
+    else
+        type="$2"
+    fi
+    case "$type" in
+    "JPEG" )
+        echo "$1" | sed "s%\(.*\)$EXPR_JPEG%\1%"
+        ;;
+    "PNG" )
+        echo "$1" | sed "s%\(.*\)$EXPR_PNG%\1%"
+        ;;
+    "BMP" )
+        echo "$1" | sed "s%\(.*\)$EXPR_BMP%\1%"
+        ;;
+    esac
+}
+
+image_size() {
+    local type
+    if [ -z "$2" ]; then
+        type=`image_type "$1"`
+    else
+        type="$2"
+    fi
+    case "$type" in
+    "JPEG" )
+        if ! image_jpeg_size "$1";  then
+            return 1
+        fi
+        ;;
+    "PNG" )
+        if ! image_png_size "$1"; then
+            return 1
+        fi
+        ;;
+    "BMP" )
+        if ! image_bmp_size "$1"; then
+            return 1
+        fi
+        ;;
+    esac
+}
+
 # Check needed tools
 if ! which jhead > /dev/null 2>&1; then
     echo " -> jhead mising, aborting"
     exit 1
 fi
+
+TMP_LANGUAGES=$ROOT/.languages
 
 # Main loop goes through all directories in view
 echo "Create albums"
@@ -114,31 +194,43 @@ ls -1t | while read dir; do
 
         # Check that the directory contains photographs
         if ! ls originals/*.[jJ][pP][gG] > /dev/null 2>&1; then
-            echo " --> no photograph files found, skipping"
+            echo " --> no supported photograph files found, skipping"
             continue
         fi
         mkdir -p reductions
+        rm -f reductions/list
 
         # Make sure permissions and date are correct
-        echo " --> checking originals"
+        echo " --> checking reductions"
         ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
-            IMAGE=`basename "$ORIGINAL"`
-            echo " ---> checking $IMAGE"
+            ORIGINAL_NAME=`basename "$ORIGINAL"`
+            IMAGE_NAME=`image_name "$ORIGINAL_NAME"`
+            echo " ---> original: $ORIGINAL_NAME"
 
-            ORIGINAL_STAMP="originals/.$IMAGE"
+            ORIGINAL_STAMP="originals/.$ORIGINAL_NAME"
             if [ ! -e "$ORIGINAL_STAMP" -o ! -s "$ORIGINAL_STAMP" ]; then
                 # Make sure the permissions are correct and repair file time
                 if chmod 644 "$ORIGINAL" && jhead -ft "$ORIGINAL" > /dev/null; then
-                    jhead -c "$ORIGINAL" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$ORIGINAL_STAMP"
+                    echo " ----> creating original size cache"
+                    image_size "$ORIGINAL" > "$ORIGINAL_STAMP"
+                else
+                    echo " ----> missing access rights to image, skipping"
+                    continue
                 fi
             fi
 
+            # This determines the reduction image format
+            REDUCTION_EXT="bmp"
+
             # Check reduction dimensions
-            REDUCTION="reductions/$IMAGE"
-            REDUCTION_STAMP="reductions/.$IMAGE"
+            REDUCTION_NAME="$IMAGE_NAME.$REDUCTION_EXT"
+            REDUCTION="reductions/$REDUCTION_NAME"
+            REDUCTION_STAMP="reductions/.$REDUCTION_NAME"
             if [ -e "$REDUCTION" ]; then
+                REDUCTION_TYPE=`image_type "$REDUCTION"`
                 if [ ! -e "$REDUCTION_STAMP" -o ! -s "$REDUCTION_STAMP" ]; then
-                    jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"
+                    echo " ----> creating reduction size cache"
+                    image_size "$REDUCTION" "$REDUCTION_TYPE" > "$REDUCTION_STAMP"
                 fi
                 REDUCTION_DIMENSIONS=`cat "$REDUCTION_STAMP"`
                 REDUCTION_WIDTH=${REDUCTION_DIMENSIONS/x*/}
@@ -151,7 +243,7 @@ ls -1t | while read dir; do
                     REDUCTION_DIMENSION=${REDUCTION_DIMENSIONS/*x/}
                 fi
                 if [ "$REDUCTION_DIMENSION" != "$REDUCTIONS_SIZE" ]; then
-                    echo " ---> scheduling for re-creation"
+                    echo " ----> size mismatch"
                     unset REDUCTION_ISVALID
                 else
                     REDUCTION_ISVALID="yes"
@@ -162,19 +254,25 @@ ls -1t | while read dir; do
 
             # Create reduction
             if [ -z "$REDUCTION_ISVALID" ]; then
-                echo " ---> creating reduction"
+                echo " ----> creating reduction"
                 ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
                 ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
                 ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
                 if [[ $ORIGINAL_WIDTH > $ORIGINAL_HEIGHT ]]; then
-                    convert -resize $REDUCTIONS_SIZE "$ORIGINAL" .image
+                    RESIZE_OPTION=$REDUCTIONS_SIZE
                 else
-                    convert -resize x$REDUCTIONS_SIZE "$ORIGINAL" .image
+                    RESIZE_OPTION=x$REDUCTIONS_SIZE
+                fi
+                TMP_IMAGE="reductions/.image.$REDUCTION_EXT"
+                if ! convert -resize $RESIZE_OPTION "$ORIGINAL" "$TMP_IMAGE"; then
+                    continue
                 fi
                 rm -f "$REDUCTION" "$REDUCTION_STAMP"
-                mv .image "$REDUCTION"
-                jhead -c "$REDUCTION" | cut -d '"' -f 3 | cut -d ' ' -f 2 > "$REDUCTION_STAMP"
+                mv "$TMP_IMAGE" "$REDUCTION"
+                image_size "$REDUCTION" "$REDUCTION_TYPE" > "$REDUCTION_STAMP"
             fi
+            ORIGINAL_EXT=`echo "$ORIGINAL_NAME" | sed "s%^$IMAGE_NAME\.%%"`
+            echo "$ORIGINAL_EXT $REDUCTION" >> reductions/list
         done
 
         # Make sure we have at least one language
@@ -190,7 +288,7 @@ ls -1t | while read dir; do
         # Create index
         echo " --> checking indexes"
         for LANGUAGE in $LANGUAGES; do
-            echo $LANGUAGE >> $ALL_LANGUAGES
+            echo $LANGUAGE >> $TMP_LANGUAGES
             TITLES="titles-$LANGUAGE.text"
             if [ -r $LANGUAGE/index.html -a $TITLES -ot $LANGUAGE/index.html ]; then
                 continue
@@ -239,31 +337,33 @@ ls -1t | while read dir; do
             echo "<tr><td align=\"center\" bgcolor=\"#444444\"><b>`tr_slideshow "$LANGUAGE"`</b></tr></td>" >> $LANGUAGE/.index
             echo "<tr><td align=\"center\" bgcolor=\"#444444\" height=`expr $REDUCTIONS_SIZE + 10` width=`expr $REDUCTIONS_SIZE + 10`>" >> $LANGUAGE/.index
             slideshow_header >> $LANGUAGE/.index
-            ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
-                IMAGE=`basename "$ORIGINAL"`
-                REDUCTION="reductions/$IMAGE"
+            while read ORIGINAL_EXT REDUCTION; do
                 slideshow_image "../$REDUCTION" >> $LANGUAGE/.index
-            done
+            done < reductions/list
             slideshow_footer >> $LANGUAGE/.index
             echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
 
             # Album
-            ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
-                IMAGE=`basename "$ORIGINAL"`
-                REDUCTION="reductions/$IMAGE"
+            while read ORIGINAL_EXT REDUCTION; do
+                REDUCTION_NAME=`basename "$REDUCTION"`
+                IMAGE_NAME=`image_name "$REDUCTION_NAME"`
+                ORIGINAL_NAME="$IMAGE_NAME.$ORIGINAL_EXT"
+                ORIGINAL="originals/$ORIGINAL_NAME"
+                IMAGE_SIZE=`du --si "$ORIGINAL" | cut -f 1`
+                IMAGE_DATE=`date +"%F %R %Z" -r "$ORIGINAL"`
                 echo "<table align=\"center\" border=1 cellspacing=0 cellpadding=3><tr><td align=\"center\" bgcolor=\"#444444\">" >> $LANGUAGE/.index
-                echo "<a href=\"../$ORIGINAL\"><img src=\"../$REDUCTION\" alt=\"$IMAGE\" title=\"$IMAGE\"></a>" >> $LANGUAGE/.index
-                IMAGE_COMMENT=`grep -m1 -e "^$IMAGE:" "$TITLES"`
+                echo "<a href=\"../$ORIGINAL\"><img src=\"../$REDUCTION\" alt=\"$REDUCTION_NAME\" title=\"$REDUCTION_NAME\"></a>" >> $LANGUAGE/.index
+                IMAGE_COMMENT=`grep -m1 -e "^$ORIGINAL_NAME:" "$TITLES"`
                 if [ -z "$IMAGE_COMMENT" ]; then
-                    echo "$IMAGE: untitled" >> "$TITLES"
+                    echo "$ORIGINAL_NAME: untitled" >> "$TITLES"
                     IMAGE_COMMENT="untitled"
                 else
-                    IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$IMAGE:%%"`
+                    IMAGE_COMMENT=`echo $IMAGE_COMMENT | sed "s%^$ORIGINAL_NAME:%%"`
                 fi
                 BACKTOTOP=`tr_backtotop $LANGUAGE`
-                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: `date +"%F %R %Z" -r "$ORIGINAL"`, Size: `du --si "$ORIGINAL" | cut -f 1`)</i><br><a href=\"#top\">$BACKTOTOP</a></p>" >> $LANGUAGE/.index
+                echo "<p align=\"center\"><b>$IMAGE_COMMENT</b><br><i>(Date: $IMAGE_DATE, Size: $IMAGE_SIZE)</i><br><a href=\"#top\">$BACKTOTOP</a></p>" >> $LANGUAGE/.index
                 echo "</tr></td></table><p>&nbsp;</p>" >> $LANGUAGE/.index
-            done
+            done < reductions/list
 
             # Add footer
             footer >> $LANGUAGE/.index
@@ -279,15 +379,22 @@ ls -1t | while read dir; do
 done
 
 # Create languages file
-sort $ALL_LANGUAGES | uniq > languages
-rm -f $ALL_LANGUAGES
+sort $TMP_LANGUAGES | uniq > languages
+rm -f $TMP_LANGUAGES
 
 # Now that the directory dates are set, fill in the main index file
-echo "Create album indexes"
+echo "Create top indexes"
 LANGUAGES=`cat languages`
 for LANGUAGE in $LANGUAGES; do
     mkdir -p $LANGUAGE
-    echo " -> language $LANGUAGE"
+    echo -n " -> creating index for language $LANGUAGE"
+    LANGUAGE_NAME=`tr_languagename "$LANGUAGE"`
+    if [ -n "$LANGUAGE_NAME" ]; then
+        echo " ($LANGUAGE_NAME)"
+    else
+        echo
+    fi
+
 
     header "`tr_photos "$LANGUAGE"`" ".." "`tr_back "$LANGUAGE"`" > $LANGUAGE/.index
 
