@@ -201,10 +201,9 @@ ls -1t | while read dir; do
         rm -f reductions/.list
 
         # Make sure permissions and date are correct
-        echo " --> checking reductions"
+        echo " --> checking originals"
         ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
             ORIGINAL_NAME=`basename "$ORIGINAL"`
-            IMAGE_NAME=`image_name "$ORIGINAL_NAME"`
             echo " ---> original: $ORIGINAL_NAME"
 
             ORIGINAL_STAMP="originals/.$ORIGINAL_NAME"
@@ -218,12 +217,19 @@ ls -1t | while read dir; do
                     continue
                 fi
             fi
+        done
+
+        echo " --> checking reductions"
+        ls -tr originals/*.[jJ][pP][gG] | while read ORIGINAL; do
+            ORIGINAL_NAME=`basename "$ORIGINAL"`
+            IMAGE_NAME=`image_name "$ORIGINAL_NAME"`
 
             # This determines the reduction image format
             REDUCTION_EXT="jpg"
 
             # Check reduction dimensions
             REDUCTION_NAME="$IMAGE_NAME.$REDUCTION_EXT"
+            echo " ---> reduction: $REDUCTION_NAME"
             REDUCTION="reductions/$REDUCTION_NAME"
             REDUCTION_STAMP="reductions/.$REDUCTION_NAME"
             if [ -e "$REDUCTION" ]; then
@@ -255,6 +261,7 @@ ls -1t | while read dir; do
             # Create reduction
             if [ -z "$REDUCTION_ISVALID" ]; then
                 echo " ----> creating reduction"
+                ORIGINAL_STAMP="originals/.$ORIGINAL_NAME"
                 ORIGINAL_DIMENSIONS=`cat "$ORIGINAL_STAMP"`
                 ORIGINAL_WIDTH=${ORIGINAL_DIMENSIONS/x*/}
                 ORIGINAL_HEIGHT=${ORIGINAL_DIMENSIONS/*x/}
